@@ -40,7 +40,9 @@
 #include <linux/highmem.h>
 #include <linux/console.h>
 #include <linux/i2c/fm34_voice_processor.h>
-#include <linux/atmel_mxt1386.h>
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
+#include <linux/i2c/atmel_mxt_ts.h>
+#endif
 #include <linux/mfd/tps6586x.h>
 
 #include <sound/wm8903.h>
@@ -510,218 +512,42 @@ static struct platform_device *tf101_devices[] __initdata = {
 	&tf101_audio_device,
 };
 
-#define GPIO_TOUCH_RST TEGRA_GPIO_PQ7
-#define GPIO_TOUCH_INT TEGRA_GPIO_PV6
-
-static void mxt_touch_init_hw(void)
-{
-	pr_info("mxt_touch_init_hw\n");
-	gpio_request(GPIO_TOUCH_RST, "TOUCH_RST");
-	gpio_request(GPIO_TOUCH_INT, "TOUCH_INT");
-
-	gpio_direction_output(GPIO_TOUCH_RST, 1);
-	gpio_direction_input(GPIO_TOUCH_INT);
-
-	tegra_gpio_enable(GPIO_TOUCH_RST);
-	tegra_gpio_enable(GPIO_TOUCH_INT);
-}
-
-static void mxt_touch_exit_hw(void)
-{
-	pr_info("mxt_touch_exit_hw\n");
-	gpio_free(GPIO_TOUCH_INT);
-	gpio_free(GPIO_TOUCH_RST);
-
-	tegra_gpio_disable(GPIO_TOUCH_INT);
-	tegra_gpio_disable(GPIO_TOUCH_RST);
-}
-
-
-static void mxt_touch_suspend_hw(void)
-{
-	gpio_direction_output(GPIO_TOUCH_RST, 0);
-	gpio_direction_output(GPIO_TOUCH_INT, 0);
-}
-
-static void mxt_touch_resume_hw(void)
-{
-	gpio_direction_output(GPIO_TOUCH_RST, 1);
-	gpio_direction_input(GPIO_TOUCH_INT);
-	msleep(120);
-}
-
-static void mxt_register_touch_callbacks(struct mxt_callbacks *cb)
-{
-//	charger_callbacks = cb;
-}
-
-static struct mxt_platform_data mxt_touch_platform_data = {
-	.numtouch = 10,
-	.max_x  = 1279,
-	.max_y  = 799,
-	.init_platform_hw  = mxt_touch_init_hw,
-	.exit_platform_hw  = mxt_touch_exit_hw,
-	.suspend_platform_hw = mxt_touch_suspend_hw,
-	.resume_platform_hw = mxt_touch_resume_hw,
-	.register_cb = mxt_register_touch_callbacks,
-	/*mxt_power_config*/
-	.power_config.idleacqint = 65,
-	.power_config.actvacqint = 255,
-	.power_config.actv2idleto = 50, /* 4s (1 unit = 200ms) */
-	/*acquisition_config*/
-	/* Atmel: 8 -> 10*/
-	.acquisition_config.chrgtime = 9,
-	.acquisition_config.reserved = 0,
-	.acquisition_config.tchdrift = 10,
-	.acquisition_config.driftst = 10,
-	.acquisition_config.tchautocal = 0,
-	.acquisition_config.sync = 0,
-#ifdef MXT_CALIBRATE_WORKAROUND
-	/*autocal config at wakeup status*/
-	.acquisition_config.atchcalst = 9,
-	.acquisition_config.atchcalsthr = 48,
-	/* Atmel: 50 => 10 : avoid wakeup lockup : 2 or 3 finger*/
-	.acquisition_config.atchcalfrcthr = 10,
-	.acquisition_config.atchcalfrcratio = 215,
-#else
-	/* Atmel: 5 -> 0 -> 9  (to avoid ghost touch problem)*/
-	.acquisition_config.atchcalst = 9,
-	/* Atmel: 50 -> 55 -> 48 ->10 (to avoid ghost touch problem)*/
-	.acquisition_config.atchcalsthr = 10,
-	/* 50-> 20 (To avoid  wakeup touch lockup)  */
-	.acquisition_config.atchcalfrcthr = 20,
-	/* 25-> 0  (To avoid  wakeup touch lockup */
-	.acquisition_config.atchcalfrcratio = 0,
-#endif
-	/*multitouch_config*/
-	/* enable + message-enable*/
-	.touchscreen_config.ctrl = 0x8b,
-	.touchscreen_config.xorigin = 0,
-	.touchscreen_config.yorigin = 0,
-	.touchscreen_config.xsize = 28,
-	.touchscreen_config.ysize = 42,
-	.touchscreen_config.akscfg = 0,
-	/* Atmel: 0x11 -> 0x21 -> 0x11*/
-	.touchscreen_config.blen = 0x10,
-	/* Atmel: 50 -> 55 -> 48,*/
-	.touchscreen_config.tchthr = 55,
-	.touchscreen_config.tchdi = 3,
-	/* orient : Horizontal flip */
-	.touchscreen_config.orient = 3,
-	.touchscreen_config.mrgtimeout = 0,
-	.touchscreen_config.movhysti = 0,
-	.touchscreen_config.movhystn = 3,
-	 /* Atmel  0x20 ->0x21 -> 0x2e(-2)*/
-	.touchscreen_config.movfilter = 0x0e,
-	.touchscreen_config.numtouch = MXT_MAX_NUM_TOUCHES,
-	.touchscreen_config.mrghyst = 20, /*Atmel 10 -> 5*/
-	 /* Atmel 20 -> 5 -> 50 (To avoid One finger Pinch Zoom) */
-	.touchscreen_config.mrgthr = 20,
-	.touchscreen_config.amphyst = 10,
-	.touchscreen_config.xrange = 799,
-	.touchscreen_config.yrange = 1279,
-	.touchscreen_config.xloclip = 0,
-	.touchscreen_config.xhiclip = 0,
-	.touchscreen_config.yloclip = 0,
-	.touchscreen_config.yhiclip = 0,
-	.touchscreen_config.xedgectrl = 0,
-	.touchscreen_config.xedgedist = 0,
-	.touchscreen_config.yedgectrl = 0x40,
-	.touchscreen_config.yedgedist = 0,
-	.touchscreen_config.jumplimit = 15,
-	.touchscreen_config.tchhyst = 15,
-	.touchscreen_config.xpitch = 0x31,
-	.touchscreen_config.ypitch = 0x34,
-	/*noise_suppression_config*/
-	.noise_suppression_config.ctrl = 0x05,
-	.noise_suppression_config.reserved = 0,
-	.noise_suppression_config.reserved1 = 0,
-	.noise_suppression_config.reserved2 = 0,
-	.noise_suppression_config.reserved3 = 0,
-	.noise_suppression_config.reserved4 = 0,
-	.noise_suppression_config.reserved5 = 0x20,
-	.noise_suppression_config.reserved6 = 0,
-	.noise_suppression_config.noisethr = 0,
-	.noise_suppression_config.reserved7 = 0,/*1;*/
-	.noise_suppression_config.freq[0] = 10,
-	.noise_suppression_config.freq[1] = 15,
-	.noise_suppression_config.freq[2] = 20,
-	.noise_suppression_config.freq[3] = 25,
-	.noise_suppression_config.freq[4] = 30,
-	.noise_suppression_config.reserved8 = 0, /* 3 -> 0*/
-	/*cte_config*/
-	.cte_config.ctrl = 0,
-	.cte_config.cmd = 0,
-	.cte_config.mode = 0,
-	/*16 -> 4 -> 8*/
-	.cte_config.idlegcafdepth = 8,
-	/*63 -> 16 -> 54(16ms sampling)*/
-	.cte_config.actvgcafdepth = 54,
-	.cte_config.voltage = 0x3c,
-	/* (enable + non-locking mode)*/
-	.gripsupression_config.ctrl = 0,
-	.gripsupression_config.xlogrip = 0, /*10 -> 0*/
-	.gripsupression_config.xhigrip = 0, /*10 -> 0*/
-	.gripsupression_config.ylogrip = 0, /*10 -> 15*/
-	.gripsupression_config.yhigrip = 0,/*10 -> 15*/
-	.palmsupression_config.ctrl = 1,
-	.palmsupression_config.reserved1 = 0,
-	.palmsupression_config.reserved2 = 0,
-	/* 40 -> 20(For PalmSuppression detect) */
-	.palmsupression_config.largeobjthr = 20,
-	/* 5 -> 50(For PalmSuppression detect) */
-	.palmsupression_config.distancethr = 50,
-	.palmsupression_config.supextto = 5,
-	/*config change for ta connected*/
-	.tchthr_for_ta_connect = 80,
-	.noisethr_for_ta_connect = 55,
-	.idlegcafdepth_ta_connect = 32,
-        .freq_for_ta_connect[0] = 45,
-        .freq_for_ta_connect[1] = 49,
-        .freq_for_ta_connect[2] = 55,
-        .freq_for_ta_connect[3] = 59,
-        .freq_for_ta_connect[4] = 63,
-        .fherr_cnt = 0,
-        .tch_blen_for_fherr = 0,
-        .tchthr_for_fherr = 35,
-        .noisethr_for_fherr = 30,
-        .freq_for_fherr1[0] = 45,
-        .freq_for_fherr1[1] = 49,
-        .freq_for_fherr1[2] = 55,
-        .freq_for_fherr1[3] = 59,
-        .freq_for_fherr1[4] = 63,
-        .freq_for_fherr2[0] = 10,
-        .freq_for_fherr2[1] = 12,
-        .freq_for_fherr2[2] = 18,
-        .freq_for_fherr2[3] = 40,
-        .freq_for_fherr2[4] = 72,
-        .freq_for_fherr3[0] = 7,
-        .freq_for_fherr3[1] = 33,
-        .freq_for_fherr3[2] = 39,
-        .freq_for_fherr3[3] = 52,
-        .freq_for_fherr3[4] = 64,
-#ifdef MXT_CALIBRATE_WORKAROUND
-	/*autocal config at idle status*/
-	.atchcalst_idle = 9,
-	.atchcalsthr_idle = 10,
-	.atchcalfrcthr_idle = 50,
-	/* Atmel: 25 => 55 : avoid idle palm on lockup*/
-	.atchcalfrcratio_idle = 55,
-#endif
+static struct mxt_platform_data atmel_mxt_info = {
+	.x_line		= 28,
+	.y_line		= 42,
+	.x_size		= 799,
+	.y_size		= 1279,
+	.blen		= 0x20,
+	.threshold	= 0x3C,
+	.voltage	= 3300000,
+	.orient		= MXT_ROTATED_90,
+	.irqflags	= IRQF_TRIGGER_FALLING,
 };
 
-static struct i2c_board_info __initdata mxt_i2c_info[] = {
+static struct i2c_board_info __initdata i2c_info[] = {
 	{
-	 I2C_BOARD_INFO("mxt1386", 0x5b),
-	 .irq = TEGRA_GPIO_TO_IRQ(GPIO_TOUCH_INT),
-	 .platform_data = &mxt_touch_platform_data,
+	 I2C_BOARD_INFO("atmel_mxt_ts", 0x5b),
+	 .irq = TEGRA_GPIO_TO_IRQ(TEGRA_GPIO_PV6),
+	 .platform_data = &atmel_mxt_info,
 	 },
 };
 
 static int __init tf101_touch_init_atmel(void)
 {
-	mxt_touch_init_hw();
-	i2c_register_board_info(0, mxt_i2c_info, 1);
+	tegra_gpio_enable(TEGRA_GPIO_PV6);
+	tegra_gpio_enable(TEGRA_GPIO_PQ7);
+
+	gpio_request(TEGRA_GPIO_PV6, "atmel-irq");
+	gpio_direction_input(TEGRA_GPIO_PV6);
+
+	gpio_request(TEGRA_GPIO_PQ7, "atmel-reset");
+	gpio_direction_output(TEGRA_GPIO_PQ7, 0);
+	msleep(1);
+	gpio_set_value(TEGRA_GPIO_PQ7, 1);
+	msleep(100);
+
+	i2c_register_board_info(0, i2c_info, 1);
+
 	return 0;
 }
 
