@@ -3,23 +3,24 @@
  *
  * Tegra Graphics Host Syncpoints
  *
- * Copyright (c) 2010-2012, NVIDIA Corporation.
+ * Copyright (c) 2010-2011, NVIDIA Corporation.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
+ * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include <linux/nvhost_ioctl.h>
-#include <linux/platform_device.h>
 #include "nvhost_syncpt.h"
 #include "dev.h"
 
@@ -76,9 +77,9 @@ u32 nvhost_syncpt_read(struct nvhost_syncpt *sp, u32 id)
 {
 	u32 val;
 	BUG_ON(!syncpt_op(sp).update_min);
-	nvhost_module_busy(syncpt_to_dev(sp)->dev);
+	nvhost_module_busy(&syncpt_to_dev(sp)->mod);
 	val = syncpt_op(sp).update_min(sp, id);
-	nvhost_module_idle(syncpt_to_dev(sp)->dev);
+	nvhost_module_idle(&syncpt_to_dev(sp)->mod);
 	return val;
 }
 
@@ -89,10 +90,10 @@ u32 nvhost_syncpt_read_wait_base(struct nvhost_syncpt *sp, u32 id)
 {
 	u32 val;
 	BUG_ON(!syncpt_op(sp).read_wait_base);
-	nvhost_module_busy(syncpt_to_dev(sp)->dev);
+	nvhost_module_busy(&syncpt_to_dev(sp)->mod);
 	syncpt_op(sp).read_wait_base(sp, id);
 	val = sp->base_val[id];
-	nvhost_module_idle(syncpt_to_dev(sp)->dev);
+	nvhost_module_idle(&syncpt_to_dev(sp)->mod);
 	return val;
 }
 
@@ -113,9 +114,9 @@ void nvhost_syncpt_incr(struct nvhost_syncpt *sp, u32 id)
 {
 	if (client_managed(id))
 		nvhost_syncpt_incr_max(sp, id, 1);
-	nvhost_module_busy(syncpt_to_dev(sp)->dev);
+	nvhost_module_busy(&syncpt_to_dev(sp)->mod);
 	nvhost_syncpt_cpu_incr(sp, id);
-	nvhost_module_idle(syncpt_to_dev(sp)->dev);
+	nvhost_module_idle(&syncpt_to_dev(sp)->mod);
 }
 
 /**
@@ -141,7 +142,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	}
 
 	/* keep host alive */
-	nvhost_module_busy(syncpt_to_dev(sp)->dev);
+	nvhost_module_busy(&syncpt_to_dev(sp)->mod);
 
 	/* try to read from register */
 	val = syncpt_op(sp).update_min(sp, id);
@@ -194,14 +195,14 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 		if (timeout != NVHOST_NO_TIMEOUT)
 			timeout -= check;
 		if (timeout) {
-			dev_warn(&syncpt_to_dev(sp)->dev->dev,
+			dev_warn(&syncpt_to_dev(sp)->pdev->dev,
 				"%s: syncpoint id %d (%s) stuck waiting %d, timeout=%d\n",
 				 current->comm, id, syncpt_op(sp).name(sp, id),
 				 thresh, timeout);
 			syncpt_op(sp).debug(sp);
 			if (check_count > MAX_STUCK_CHECK_COUNT) {
 				if (low_timeout) {
-					dev_warn(&syncpt_to_dev(sp)->dev->dev,
+					dev_warn(&syncpt_to_dev(sp)->pdev->dev,
 						"is timeout %d too low?\n",
 						low_timeout);
 				}
@@ -214,7 +215,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	nvhost_intr_put_ref(&(syncpt_to_dev(sp)->intr), ref);
 
 done:
-	nvhost_module_idle(syncpt_to_dev(sp)->dev);
+	nvhost_module_idle(&syncpt_to_dev(sp)->mod);
 	return err;
 }
 
@@ -283,28 +284,6 @@ bool nvhost_syncpt_is_expired(
 void nvhost_syncpt_debug(struct nvhost_syncpt *sp)
 {
 	syncpt_op(sp).debug(sp);
-}
-
-int nvhost_mutex_try_lock(struct nvhost_syncpt *sp, int idx)
-{
-	struct nvhost_master *host = syncpt_to_dev(sp);
-	u32 reg;
-
-	nvhost_module_busy(host->dev);
-	reg = syncpt_op(sp).mutex_try_lock(sp, idx);
-	if (reg) {
-		nvhost_module_idle(host->dev);
-		return -EBUSY;
-	}
-	atomic_inc(&sp->lock_counts[idx]);
-	return 0;
-}
-
-void nvhost_mutex_unlock(struct nvhost_syncpt *sp, int idx)
-{
-	syncpt_op(sp).mutex_unlock(sp, idx);
-	nvhost_module_idle(syncpt_to_dev(sp)->dev);
-	atomic_dec(&sp->lock_counts[idx]);
 }
 
 /* check for old WAITs to be removed (avoiding a wrap) */

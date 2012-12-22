@@ -3,19 +3,21 @@
  *
  * Tegra Graphics Host Syncpoints
  *
- * Copyright (c) 2010-2012, NVIDIA Corporation.
+ * Copyright (c) 2010-2011, NVIDIA Corporation.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
+ * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef __NVHOST_SYNCPT_H
@@ -41,8 +43,6 @@ struct nvhost_syncpt {
 	u32 nb_pts;
 	u32 nb_bases;
 	u32 client_managed;
-	atomic_t *lock_counts;
-	u32 nb_mlocks;
 };
 
 int nvhost_syncpt_init(struct nvhost_syncpt *);
@@ -147,9 +147,5 @@ int nvhost_syncpt_wait_check(struct nvhost_syncpt *sp,
 			int num_waitchk);
 
 void nvhost_syncpt_debug(struct nvhost_syncpt *sp);
-
-int nvhost_mutex_try_lock(struct nvhost_syncpt *sp, int idx);
-
-void nvhost_mutex_unlock(struct nvhost_syncpt *sp, int idx);
 
 #endif

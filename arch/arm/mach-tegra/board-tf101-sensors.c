@@ -437,6 +437,7 @@ struct nvhost_device tegra_camera_device = {
 		.coherent_dma_mask      = 0xffffffff,
 		.platform_data          = &tegra_camera_platform_data,
 	},
+/*	
 	.syncpts       = BIT(NVSYNCPT_CSI_VI_0) | BIT(NVSYNCPT_CSI_VI_1) |
 	                 BIT(NVSYNCPT_VI_ISP_0) | BIT(NVSYNCPT_VI_ISP_1) |
 			 BIT(NVSYNCPT_VI_ISP_2) | BIT(NVSYNCPT_VI_ISP_3) |
@@ -446,6 +447,7 @@ struct nvhost_device tegra_camera_device = {
 	NVHOST_MODULE_NO_POWERGATE_IDS,
 	NVHOST_DEFAULT_CLOCKGATE_DELAY,
 	.moduleid      = NVHOST_MODULE_VI,
+*/	
 };
 
 #ifdef CONFIG_MPU_SENSORS_MPU3050

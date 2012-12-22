@@ -3,19 +3,21 @@
  *
  * Tegra Graphics Host Channel
  *
- * Copyright (c) 2010-2012, NVIDIA Corporation.
+ * Copyright (c) 2010-2011, NVIDIA Corporation.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
+ * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef __NVHOST_CHANNEL_H
@@ -36,7 +38,18 @@
 
 struct nvhost_master;
 struct nvhost_waitchk;
-struct nvhost_device;
+
+struct nvhost_channeldesc {
+	const char *name;
+	u32 syncpts;
+	u32 waitbases;
+	u32 modulemutexes;
+	u32 class;
+	bool exclusive;
+	bool keepalive;
+	bool waitbasesync;
+	struct nvhost_moduledesc module;
+};
 
 struct nvhost_channel_gather {
 	u32 words;
@@ -52,11 +65,13 @@ struct nvhost_channel {
 	struct mutex reflock;
 	struct mutex submitlock;
 	void __iomem *aperture;
+	struct nvhost_master *dev;
+	const struct nvhost_channeldesc *desc;
 	struct nvhost_hwctx *cur_ctx;
 	struct device *node;
-	struct nvhost_device *dev;
 	struct cdev cdev;
-	struct nvhost_hwctx_handler *ctxhandler;
+	struct nvhost_hwctx_handler ctxhandler;
+	struct nvhost_module mod;
 	struct nvhost_cdma cdma;
 };
 
@@ -70,8 +85,8 @@ struct nvhost_channel *nvhost_getchannel(struct nvhost_channel *ch);
 void nvhost_putchannel(struct nvhost_channel *ch, struct nvhost_hwctx *ctx);
 int nvhost_channel_suspend(struct nvhost_channel *ch);
 
-#define channel_cdma_op(ch) (nvhost_get_host(ch->dev)->op.cdma)
-#define channel_op(ch) (nvhost_get_host(ch->dev)->op.channel)
+#define channel_cdma_op(ch) (ch->dev->op.cdma)
+#define channel_op(ch) (ch->dev->op.channel)
 #define host_channel_op(host) (host->op.channel)
 
 int nvhost_channel_drain_read_fifo(void __iomem *chan_regs,
