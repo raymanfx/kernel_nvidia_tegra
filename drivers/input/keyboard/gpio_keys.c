@@ -33,7 +33,7 @@
 #include <linux/spinlock.h>
 
 struct gpio_button_data {
-	const struct gpio_keys_button *button;
+	struct gpio_keys_button *button;
 	struct input_dev *input;
 	struct timer_list timer;
 	struct work_struct work;
@@ -328,7 +328,7 @@ static struct attribute_group gpio_keys_attr_group = {
 
 static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 {
-	const struct gpio_keys_button *button = bdata->button;
+	struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
@@ -390,7 +390,7 @@ static void gpio_keys_irq_timer(unsigned long _data)
 static irqreturn_t gpio_keys_irq_isr(int irq, void *dev_id)
 {
 	struct gpio_button_data *bdata = dev_id;
-	const struct gpio_keys_button *button = bdata->button;
+	struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned long flags;
 
@@ -422,13 +422,19 @@ out:
 static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 					 struct input_dev *input,
 					 struct gpio_button_data *bdata,
-					 const struct gpio_keys_button *button)
+					 struct gpio_keys_button *button)
 {
 	const char *desc = button->desc ? button->desc : "gpio_keys";
 	struct device *dev = &pdev->dev;
 	irq_handler_t isr;
 	unsigned long irqflags;
 	int irq, error;
+
+#ifdef CONFIG_KEYBOARD_GPIO_LIDPATCH
+	if (button->type == EV_SW) {
+	button->active_low = 1;
+	}
+#endif
 
 	bdata->input = input;
 	bdata->button = button;
@@ -698,7 +704,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 		__set_bit(EV_REP, input->evbit);
 
 	for (i = 0; i < pdata->nbuttons; i++) {
-		const struct gpio_keys_button *button = &pdata->buttons[i];
+		struct gpio_keys_button *button = &pdata->buttons[i];
 		struct gpio_button_data *bdata = &ddata->data[i];
 
 		error = gpio_keys_setup_key(pdev, input, bdata, button);

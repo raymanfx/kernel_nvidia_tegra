@@ -187,6 +187,14 @@ config KEYBOARD_GPIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys.
 
+config KEYBOARD_GPIO_LIDPATCH
+	bool "GPIO LidPatch"
+	depends on GENERIC_GPIO
+	default y
+	help
+	  saying yes will activate the aosp like lidpatch logic
+	  saying no will keep it compatible with the original ASUS rom logic
+
 config KEYBOARD_GPIO_POLLED
 	tristate "Polled GPIO buttons"
 	depends on GENERIC_GPIO
